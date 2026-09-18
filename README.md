@@ -1,9 +1,12 @@
-# Demand Forecasting GBM — LightGBM/XGBoost 수요 예측 + 확률적 예측(P10/P50/P90)
+# Demand Forecasting GBM — LightGBM/XGBoost + DeepAR/TFT 수요 예측·확률적 예측(P10/P50/P90)
 
 > 2026-09-11. 캐롯아이(AI Engineer, AI Agent & Forecasting) JD의 필수요건 "LightGBM, XGBoost 등
 > 머신러닝 모델을 학습/평가 경험"과 우대사항 "DeepAR, TFT 등 시계열 수요/매출 예측·확률적 예측
 > (P10/P50/P90)"을 직접 겨냥해 신규로 만들었다. 지금까지 프로젝트는 전부 딥러닝·LLM이었고
 > **정형 데이터·그래디언트 부스팅·시계열 예측은 이 프로젝트가 처음**이다. 전부 무료·결정적·Windows.
+> **(2026-09-18 확장)** 우대사항의 DeepAR/TFT(신경망 확률적 예측)까지 구현해 같은 데이터로
+> head-to-head 비교했다 — 맨 아래 "2026-09-18 확장" 섹션. 합성 데이터에선 GBM이 압승했지만
+> 실데이터(외삽이 필요한 트렌드 시리즈)에서는 TFT가 역전해 Ridge와 동률 1위를 냈다.
 
 ## 목표·이유
 채용 공고가 요구하는 구체 스킬(LightGBM/XGBoost, 확률적 예측)에 실측 근거가 없었다. "배울 수 있다"가
@@ -101,6 +104,134 @@ data/a10_antidiabetic_sales.csv   실데이터 캐시(출처 상단 주석)
   `synth_data.py`에 가정 전부 문서화). 구조·지표·비교 방법론을 시연하는 용도다.
 - 실데이터 검증은 **단일 월별 시리즈(204건)** 뿐이다 — "여러 매장/품목에서 배우는" GBM의 장점이
   발휘될 조건이 아니다. 다품목 실데이터(예: 여러 매장 POS)로는 검증하지 못했다.
-- DeepAR·TFT(신경망 기반 확률적 예측)는 구현하지 않았다 — LightGBM quantile objective까지가
-  "확률적 예측을 다뤄본" 선이다.
 - 클라우드 배포·실시간 서빙은 다루지 않았다. 로컬 배치 학습·평가까지가 이 프로젝트의 범위다.
+
+---
+
+## 2026-09-18 확장 — DeepAR/TFT(신경망 기반 확률적 예측)
+
+> 캐롯아이(AI Engineer, AI Agent & Forecasting) JD 우대사항이 "DeepAR, TFT 등 시계열 수요/매출
+> 예측·확률적 예측(P10/P50/P90)"이고, 위 "정직한 범위"에 **"DeepAR·TFT는 구현하지 않았다"**고
+> 명시돼 있던 갭이었다. 새 프로젝트를 만들지 않고 이 프로젝트를 확장해, 기존 표와 완전히 같은 두
+> 데이터셋(합성 40시리즈·실데이터 a10)으로 신경망 모델을 재서 나란히 비교했다.
+
+### 라이브러리 선택
+`neuralforecast`(Nixtla)를 택했다. DeepAR·TFT를 sklearn 스타일 `NeuralForecast(models=[...]).fit/predict`
+하나로 다루고, long-format(`unique_id/ds/y`) 판다스 입력을 그대로 받아 다중 시리즈를 한 번에
+학습한다 — 40개 시리즈를 개별 `TimeSeriesDataSet`으로 손으로 구성해야 하는 `pytorch-forecasting`
+보다 이 데이터 구조에 적은 코드로 맞았다. **`pytorch-forecasting`을 실제로 설치·비교해보지는
+않았다** — API 문서·요구 보일러플레이트만 보고 판단한 선택이라는 점을 밝힌다.
+
+### 측정 설계 — 반드시 먼저 말해야 하는 비대칭
+기존 LightGBM/XGBoost/Ridge는 `dfg/features.py`가 lag/rolling 특징을 **train/val/test 분할 전
+전체 시리즈**에서 계산한다 — 즉 test 구간의 각 시점도 "직전 실측값을 이미 안다"고 가정한 **1스텝
+예측**이다. 반면 DeepAR/TFT는 `NeuralForecast.predict()`로 마지막 cutoff 이후 실측값을 전혀 보지
+않고 h스텝(합성 28일·실데이터 24개월)을 **한 번에** 예측하는 **진짜 다중 스텝 예측**이다. 후자가
+명백히 더 어려운 과제라, 신경망이 GBM보다 못하더라도 "모델이 열등하다"가 아니라 "더 어려운 과제를
+풀었다"일 수 있다 — 아래 결과를 읽을 때 이 비대칭을 계속 염두에 둬야 한다.
+
+두 모델 다 train+val 구간 전체(합성 702일·실데이터 180개월)를 cutoff까지 컨텍스트로 학습했고,
+`max_steps=300`(둘 다 CPU, `.venv_neural/`), 합성은 `input_size=90`, 실데이터는 `input_size=24`
+(계절 주기 2회분)를 썼다. DeepAR는 `DistributionLoss(StudentT, level=[80])`로 분포 평균(점추정)과
+80% 구간을, TFT는 `MQLoss(quantiles=[0.1,0.5,0.9])`로 P10/중앙값/P90을 직접 냈다.
+
+### 핵심 결과 (실측, `python demo_neural.py`)
+
+**합성 데이터(40시리즈, test 28일×40 = 1120행) — 신경망이 전부 졌다**
+
+| 모델 | MAE | RMSE | 학습+예측 시간 |
+|---|---:|---:|---:|
+| seasonal-naive | 21.180 | 35.924 | - |
+| Ridge | 12.411 | 17.992 | 0.23s |
+| **LightGBM** | **10.353** | **13.861** | 1.60s |
+| XGBoost | 10.405 | 14.180 | 0.61s |
+| DeepAR | 18.821 | 30.639 | 160.9s |
+| TFT | 21.915 | 33.700 | 811.9s |
+
+DeepAR vs LightGBM: Wilcoxon **p=8.93e-45**(LightGBM이 유의하게 나음). TFT vs LightGBM: **p=1.49e-63**
+(LightGBM이 유의하게 나음). TFT는 naive와 사실상 동률(21.915 vs 21.180)이다. **GBM은 학습 1.6초,
+TFT는 812초(약 500배)** — 시간까지 감안하면 이 조건에서 신경망을 쓸 이유가 없다.
+
+확률적 예측 커버리지(이론값 80%)는 반대로 **TFT가 가장 잘 보정됐다** — LightGBM quantile 74.8%,
+DeepAR 68.5%, **TFT 79.8%**. 점추정은 가장 나쁜 모델이 구간 보정은 가장 좋다는, 점 정확도와 분포
+보정이 서로 다른 축이라는 걸 보여주는 결과다.
+
+**실데이터 a10(월별, test 24개월) — TFT가 역전해 최상위권**
+
+| 모델 | MAE | RMSE | MAPE |
+|---|---:|---:|---:|
+| seasonal-naive | 3.267 | 3.670 | 15.0% |
+| **Ridge** | **2.228** | **2.661** | **10.5%** |
+| LightGBM(단독) | 7.202 | 7.916 | 31.6% |
+| LightGBM(추세제거) | 4.294 | 5.204 | 18.2% |
+| DeepAR | 3.942 | 4.607 | 17.6% |
+| **TFT** | **2.317** | **2.626** | **10.5%** |
+
+**TFT(MAE 2.317)가 Ridge(2.228)와 사실상 동률로 1위**이고, LightGBM 두 버전을 큰 폭으로 앞선다.
+이유를 예측값 범위로 확인했다: train y 범위 `[3.45, 18.00]`, 실제 test y 범위 `[16.43, 29.67]`
+(위 §"실데이터 검증"에서 이미 확인한, train 범위를 크게 벗어나는 지속 성장 추세)인데 —
+
+```
+DeepAR 예측 범위: [14.36, 24.02]
+TFT   예측 범위: [17.00, 25.54]
+```
+
+**TFT는 train 범위 밖으로 외삽했다.** 이 프로젝트가 이미 진단한 "트리 모델은 리프 평균으로
+예측하므로 train 범위 밖을 원리적으로 외삽 못한다"는 한계(위 §"원인 진단")를, TFT의 attention
+기반 디코더는 갖고 있지 않다는 뜻이다 — Ridge가 선형 외삽으로 이겼던 바로 그 지점에서 TFT도
+같은 이유로 이긴다. DeepAR는 부분적으로만 외삽했고(24.02는 test 최댓값 29.67에 못 미침) 그만큼
+MAE도 TFT보다 나쁘다.
+
+단, **확률적 예측 커버리지는 둘 다 나쁘다**(DeepAR 12.5%, TFT 37.5%, 이론값 80%, n=24라 검정력이
+낮다는 건 `demo_real.py`가 이미 밝힌 한계와 동일) — 추세가 지속 상승하는 구간에서 두 모델 다
+불확실성 구간을 충분히 넓게 못 잡았다(실제값이 P90을 반복해서 뚫었다).
+
+### 해석 — no free lunch가 한 번 더, 그러나 이번엔 신경망이 이기는 쪽에서
+합성 데이터(짧은 다중시리즈, 진짜 h=28 예측)에서는 GBM/Ridge가 압승했고, 실데이터(단일 트렌드
+시리즈, 진짜 h=24 예측)에서는 TFT가 GBM을 크게 이기고 Ridge와 동률을 냈다 — `demand_forecasting_gbm`
+프로젝트가 반복해서 확인해 온 패턴(합성과 실데이터에서 승자가 다르다, `predictive_maintenance`의
+탐지-예측 트레이드오프와 같은 종류)이 신경망 대 GBM 축에서도 그대로 재현됐다. **"신경망이 최신이라
+낫다"도 "GBM이 가볍고 데이터가 적어 항상 낫다"도 둘 다 이 실측 안에서는 틀렸다** — 이 시리즈가
+"외삽이 필요한 트렌드"냐 아니냐가 승자를 가른다.
+
+### 에러 대처 기록
+1. **저장소 공유 파이썬 환경 오염(가장 심각) — `pip install neuralforecast`가 전역 GPU torch를
+   CPU 전용으로 강제 교체했다.** `torch 2.6.0+cu124` → `torch 2.14.0+cpu`로 바뀌면서
+   `torchvision`/`torchaudio`가 깨지고, numpy도 2.1.3→2.5.2로 밀려 `opencv-python`/`numba`
+   버전 제약과 충돌했다. 이 저장소의 다른 프로젝트(VLM Defect Inspector 등)가 전부 이 전역
+   환경을 공유해서 쓴다 — **즉시 `pip uninstall`로 되돌리고 `torch==2.6.0+cu124`를 인덱스
+   지정으로 재설치, `numpy==2.1.3`도 원복**했다. 이후 **`.venv_neural/`라는 이 프로젝트 전용
+   격리 venv를 새로 만들어 neuralforecast를 그 안에만 설치**하는 것으로 재발을 막았다 —
+   `requirements_neural.txt` 참고. **PyTorch 생태계 라이브러리는 전역 환경에 바로 설치하지
+   않는다**는 원칙을 이 사고로 새로 세웠다.
+2. **`UnicodeEncodeError: 'cp949' codec can't encode character '—'`** — Windows 콘솔
+   기본 코드페이지(cp949)가 한글 print문의 em dash(—)를 못 씀. `PYTHONIOENCODING=utf-8
+   PYTHONUTF8=1` 환경변수로 해결.
+3. **TFT 예측 컬럼명이 예상과 다름** — `MQLoss(quantiles=[0.1,0.5,0.9])`가 만드는 컬럼은
+   `'TFT-median'`이 아니라 끝에 `.0`이 붙는 `'TFT-lo-80.0'`/`'TFT-hi-80.0'` 형태였다(neuralforecast
+   3.2.2가 quantile을 level 80% 표기로 환산하면서 소수점을 남긴다). `endswith("-lo-80")` 매칭이
+   조용히 실패할 뻔한 걸 실행 로그로 컬럼명을 직접 찍어서 잡고, 부분일치(`in`)로 바꿨다
+   (`dfg/neural_models.py`).
+4. **학습 시간 비대칭** — TFT(870K 파라미터)가 DeepAR(199K)보다 합성 데이터에서 약 5배 느렸다
+   (812s vs 161s) — attention 기반 TFT가 LSTM 기반 DeepAR보다 이 작은 데이터·CPU 환경에서
+   무거웠다.
+
+### 재현
+```bash
+python -m venv .venv_neural
+.venv_neural/Scripts/python.exe -m pip install -r requirements_neural.txt
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 .venv_neural/Scripts/python.exe demo_neural.py
+```
+결과: `results_neural/neural_run.log`(전체 로그, Wilcoxon 검정·커버리지 포함),
+`results_neural/results_neural_summary.txt`(요약).
+
+### 정직한 범위 (신경망 확장분)
+- **위 "측정 설계" 비대칭이 이 비교의 가장 중요한 한계다** — GBM은 oracle 1스텝, 신경망은 진짜
+  h스텝 예측이라 직접적인 "동일 과제" 비교가 아니다. 신경망에도 oracle 1스텝(rolling
+  origin, `cross_validation(step_size=1)`)을 적용해 과제를 맞추는 실험은 하지 않았다.
+- `pytorch-forecasting`과의 head-to-head 비교는 하지 않았다(라이브러리 선택 근거는 문서 기반).
+- 하이퍼파라미터 탐색을 하지 않았다(`max_steps=300` 고정, learning rate·hidden size 등 기본값) —
+  신경망 쪽 수치가 더 좋아질 여지가 남아 있다는 뜻이고, 특히 합성 데이터의 큰 격차 일부는 과소
+  학습(underfit) 때문일 수 있다.
+- GPU를 쓰지 않았다(`.venv_neural`는 CPU torch) — 데이터가 작아 필요 없다고 판단했지만, 더 큰
+  데이터·더 많은 max_steps에서는 GPU 없이 이 학습 시간(특히 TFT 812초)이 더 늘어난다.

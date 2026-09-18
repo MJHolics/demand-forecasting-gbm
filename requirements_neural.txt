@@ -1,0 +1,14 @@
+# DeepAR/TFT 확장 전용 — 격리된 venv(.venv_neural/)에만 설치한다.
+# 이유는 README "에러 대처 기록" 참고: neuralforecast가 저장소 공유 파이썬 환경의 GPU torch를
+# CPU 전용으로 강제 교체해 다른 프로젝트를 깰 뻔했다.
+#
+# 설치:
+#   python -m venv .venv_neural
+#   .venv_neural/Scripts/python.exe -m pip install -r requirements_neural.txt
+neuralforecast==3.2.2
+lightgbm
+xgboost
+scikit-learn
+pandas
+scipy
+pytest

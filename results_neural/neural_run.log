@@ -1,0 +1,159 @@
+Seed set to 42
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+
+  | Name                | Type             | Params | Mode 
+-----------------------------------------------------------------
+0 | loss                | DistributionLoss | 3      | train
+1 | valid_loss          | MAE              | 0      | train
+2 | hist_cat_embeddings | ModuleList       | 0      | train
+3 | futr_cat_embeddings | ModuleList       | 0      | train
+4 | stat_cat_embeddings | ModuleList       | 0      | train
+5 | padder_train        | ConstantPad1d    | 0      | train
+6 | scaler              | TemporalNorm     | 0      | train
+7 | hist_encoder        | LSTM             | 199 K  | train
+8 | decoder             | MLP              | 387    | train
+-----------------------------------------------------------------
+199 K     Trainable params
+3         Non-trainable params
+199 K     Total params
+0.798     Total estimated model params size (MB)
+11        Modules in train mode
+0         Modules in eval mode
+`Trainer.fit` stopped: `max_steps=300` reached.
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+Seed set to 42
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+
+  | Name                    | Type                     | Params | Mode 
+-----------------------------------------------------------------------------
+0 | loss                    | MQLoss                   | 3      | train
+1 | hist_cat_embeddings     | ModuleList               | 0      | train
+2 | futr_cat_embeddings     | ModuleList               | 0      | train
+3 | stat_cat_embeddings     | ModuleList               | 0      | train
+4 | padder_train            | ConstantPad1d            | 0      | train
+5 | scaler                  | TemporalNorm             | 0      | train
+6 | embedding               | TFTEmbedding             | 512    | train
+7 | temporal_encoder        | TemporalCovariateEncoder | 613 K  | train
+8 | temporal_fusion_decoder | TemporalFusionDecoder    | 256 K  | train
+9 | output_adapter          | Linear                   | 387    | train
+-----------------------------------------------------------------------------
+870 K     Trainable params
+3         Non-trainable params
+870 K     Total params
+3.482     Total estimated model params size (MB)
+91        Modules in train mode
+0         Modules in eval mode
+`Trainer.fit` stopped: `max_steps=300` reached.
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+Seed set to 42
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+
+  | Name                | Type             | Params | Mode 
+-----------------------------------------------------------------
+0 | loss                | DistributionLoss | 3      | train
+1 | valid_loss          | MAE              | 0      | train
+2 | hist_cat_embeddings | ModuleList       | 0      | train
+3 | futr_cat_embeddings | ModuleList       | 0      | train
+4 | stat_cat_embeddings | ModuleList       | 0      | train
+5 | padder_train        | ConstantPad1d    | 0      | train
+6 | scaler              | TemporalNorm     | 0      | train
+7 | hist_encoder        | LSTM             | 199 K  | train
+8 | decoder             | MLP              | 387    | train
+-----------------------------------------------------------------
+199 K     Trainable params
+3         Non-trainable params
+199 K     Total params
+0.798     Total estimated model params size (MB)
+11        Modules in train mode
+0         Modules in eval mode
+`Trainer.fit` stopped: `max_steps=300` reached.
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+Seed set to 42
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+
+  | Name                    | Type                     | Params | Mode 
+-----------------------------------------------------------------------------
+0 | loss                    | MQLoss                   | 3      | train
+1 | hist_cat_embeddings     | ModuleList               | 0      | train
+2 | futr_cat_embeddings     | ModuleList               | 0      | train
+3 | stat_cat_embeddings     | ModuleList               | 0      | train
+4 | padder_train            | ConstantPad1d            | 0      | train
+5 | scaler                  | TemporalNorm             | 0      | train
+6 | embedding               | TFTEmbedding             | 512    | train
+7 | temporal_encoder        | TemporalCovariateEncoder | 613 K  | train
+8 | temporal_fusion_decoder | TemporalFusionDecoder    | 256 K  | train
+9 | output_adapter          | Linear                   | 387    | train
+-----------------------------------------------------------------------------
+870 K     Trainable params
+3         Non-trainable params
+870 K     Total params
+3.482     Total estimated model params size (MB)
+91        Modules in train mode
+0         Modules in eval mode
+`Trainer.fit` stopped: `max_steps=300` reached.
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+
+======================================================================
+[A] 합성 데이터 (40 series x 730일) — DeepAR/TFT vs 기존 GBM/baseline
+======================================================================
+
+--- 기존 GBM/baseline 재계산 (README 표와 동일 파이프라인, 정렬 일치용) ---
+    seasonal-naive MAE=21.180  Ridge MAE=12.411  LightGBM MAE=10.353  XGBoost MAE=10.405
+
+--- DeepAR/TFT 학습 (train+val 구간 전체를 cutoff까지 context로, h=28 다중스텝 예측) ---
+    DeepAR 학습+예측 완료 (160.9s), 컬럼: ['unique_id', 'ds', 'DeepAR', 'DeepAR-lo-80', 'DeepAR-hi-80']
+    TFT 학습+예측 완료 (811.9s), 컬럼: ['unique_id', 'ds', 'TFT-lo-80.0', 'TFT-median', 'TFT-hi-80.0']
+    조인 후 표본 1120/1120 (미매칭 0건)
+
+--- 점 예측 비교 (MAE/RMSE, 동일 1120행 기준) ---
+    seasonal-naive     MAE=21.180  RMSE=35.924
+    Ridge              MAE=12.411  RMSE=17.992
+    LightGBM           MAE=10.353  RMSE=13.861
+    XGBoost            MAE=10.405  RMSE=14.180
+    DeepAR(분포평균)       MAE=18.821  RMSE=30.639
+    TFT(중앙값)           MAE=21.915  RMSE=33.700
+
+--- Wilcoxon 짝지음 검정 (vs LightGBM) ---
+    DeepAR vs LightGBM: p=8.93e-45  median_diff=3.122  n=1120  (LightGBM이 더 나음)
+    TFT vs LightGBM: p=1.49e-63  median_diff=6.247  n=1120  (LightGBM이 더 나음)
+
+--- 확률적 예측(P10/P90 구간 커버리지, 이론값 80%) ---
+    LightGBM quantile    커버리지=74.8%
+    DeepAR(80% 구간)       커버리지=68.5%
+    TFT(P10/P90)         커버리지=79.8%
+
+======================================================================
+[B] 실데이터 a10(항당뇨병 판매량, 월별 204건) — DeepAR/TFT vs 기존
+======================================================================
+    DeepAR 학습+예측 완료 (43.2s)
+    TFT 학습+예측 완료 (294.9s)
+    조인 후 표본 24/24
+
+--- 점 예측 비교 (MAE/RMSE/MAPE) ---
+    seasonal-naive       MAE=3.267  RMSE=3.670  MAPE=15.0%
+    Ridge                MAE=2.228  RMSE=2.661  MAPE=10.5%
+    LightGBM(단독)         MAE=7.202  RMSE=7.916  MAPE=31.6%
+    LightGBM(추세제거)       MAE=4.294  RMSE=5.204  MAPE=18.2%
+    DeepAR(분포평균)         MAE=3.942  RMSE=4.607  MAPE=17.6%
+    TFT(중앙값)             MAE=2.317  RMSE=2.626  MAPE=10.5%
+
+--- 확률적 예측(P10/P90 구간 커버리지, 이론값 80%, n=24라 참고용) ---
+    DeepAR(80% 구간)       커버리지=12.5%
+    TFT(P10/P90)         커버리지=37.5%
+
+    train y 범위: [3.45, 18.00]  실제 test y 범위: [16.43, 29.67]
+    DeepAR 예측 범위: [14.36, 24.02]
+    TFT 예측 범위:    [17.00, 25.54]
+
+======================================================================
+요약 저장 -> results_neural_summary.txt
+======================================================================
+완료.

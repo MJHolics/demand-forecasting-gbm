@@ -1,0 +1,17 @@
+[A] 합성 데이터(40 series x 730일, test 28일 x 40 series = 1120행)
+  DeepAR 학습+예측 160.9s, TFT 811.9s
+  naive      MAE=21.180  RMSE=35.924
+  ridge      MAE=12.411  RMSE=17.992
+  lgb        MAE=10.353  RMSE=13.861
+  xgb        MAE=10.405  RMSE=14.180
+  deepar     MAE=18.821  RMSE=30.639
+  tft        MAE=21.915  RMSE=33.700
+
+[B] 실데이터 a10(월별, test 24개월)
+  DeepAR 학습+예측 43.2s, TFT 294.9s
+  naive          MAE=3.267  RMSE=3.670  MAPE=15.0%
+  ridge          MAE=2.228  RMSE=2.661  MAPE=10.5%
+  lgb            MAE=7.202  RMSE=7.916  MAPE=31.6%
+  lgb_detrended  MAE=4.294  RMSE=5.204  MAPE=18.2%
+  deepar         MAE=3.942  RMSE=4.607  MAPE=17.6%
+  tft            MAE=2.317  RMSE=2.626  MAPE=10.5%
